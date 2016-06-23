@@ -12,4 +12,8 @@ When the core sentence is extracted, AIDA comes into place to check sentences. A
 
 Therefore, the second step is to check whether the core sentence complies with the rules of an AIDA sentence. If it does, a single claim is extracted from the article. If it does not, an attempt is made to rewrite the sentence in order to make it comply with these rules. This is all done in AIDA_Check.py
 
-The branch Results shows the results of my project, feel free to use them for further improvements of the algorithm!
+Tthe results of my project are also provided, feel free to use them for further improvements of the algorithm!
+
+Cheers,
+
+Tom 
