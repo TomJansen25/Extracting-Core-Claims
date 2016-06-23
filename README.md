@@ -12,8 +12,10 @@ When the core sentence is extracted, AIDA comes into place to check sentences. A
 
 Therefore, the second step is to check whether the core sentence complies with the rules of an AIDA sentence. If it does, a single claim is extracted from the article. If it does not, an attempt is made to rewrite the sentence in order to make it comply with these rules. This is all done in AIDA_Check.py
 
-Tthe results of my project are also provided, feel free to use them for further improvements of the algorithm!
+The results of my project are also provided, feel free to use them for further improvements of the algorithm!
 
 Cheers,
 
-Tom 
+Tom
+
+[1] Kuhn, Tobias, et al. "Broadening the scope of nanopublications." The Semantic Web: Semantics and Big Data. Springer Berlin Heidelberg, 2013. 487-501.
