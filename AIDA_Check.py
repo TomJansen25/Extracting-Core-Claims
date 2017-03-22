@@ -1,9 +1,11 @@
+# -*- coding: utf-8 -*-
 # Import required libraries
 
 import nltk, re, csv
 from stat_parser import Parser, display_tree
 parser = Parser()
 from nltk.tree import Tree
+from nltk.stem.wordnet import WordNetLemmatizer
 
 # Define all the lists that are checked for the requirements
 
@@ -75,26 +77,33 @@ def make_declarative(sentence, tags):
         
 def check_if_absolute(sentence, sentence_lower, tags):
     absolute_check = re.compile("|".join(not_absolute_list))
-    searchObj = re.search( r'(overall|in sum|therefore|thus|together|in conclusion|taken together|collectively|altogether|taken collectively|to conclude|conclusively|all together|all things considered|everything considered|as a result|consequently|conclusion)*.*(the|these|this|the present)*(study|results|findings|research|report|data|observation|experiment|publication|analysis|data set|dataset|we|it is)+.*(highlight|constitute|suggest|indicate|demonstrate|show|reveal|provide|illustrate|describe|conclude|support|establish|propose|advocate|determine|confirm|argue|impl|display|offer|underline|allow)+', sentence_lower, re.I)
+    searchObj = re.search( r'(the|these|this|the present)*(study|results|findings|research|report|data|observation|experiment|publication|analysis|data set|dataset|we|it is)+.*(highlight|constitute|suggest|indicate|demonstrate|show|reveal|provide|illustrate|describe|conclude|support|establish|propose|advocate|determine|confirm|argue|impl|display|offer|underline|allow)+', sentence_lower, re.I)
     if searchObj != None:
         return False
     elif absolute_check.search(sentence_lower):
         return False
     elif re.search( r'is a(.){0,20}(candidate|contender|contestant)+', sentence) != None:
         return False
-    elif "MD" in tags:
+    elif "MD" or "VBD" in tags:
         return False
     else:
         return True
 
 def make_absolute(sentence, tokenized, tagged):
+    sentence = sentence.decode('utf-8')
     predictions = ["is predicted to", "is foreseen to", "is envisioned to"]
     searchObj = re.search( r'(overall|in sum|therefore|thus|together|in conclusion|taken together|collectively|altogether|taken collectively|to conclude|conclusively|all together|all things considered|everything considered|as a result|consequently|conclusion)*.*(the|these|this|the present)*(study|results|findings|research|report|data|observation|experiment|publication|analysis|data set|dataset|we|it is)+.*(hypothesis|highlight|constitute|suggest|indicate|demonstrate|show|reveal|provide|illustrate|describe|conclude|support|establish|propose|advocate|determine|confirm|argue|impl|display|offer|underline|allow|provide increased support for|found)+((.){0,10}(that))+', sentence, re.I)
     if searchObj != None:
         sentence = sentence.replace((searchObj.group() + " "), "")
     for prediction in predictions:
         if prediction in sentence:
-            sentence = sentence.replace(prediction, "")
+            for i, tag in enumerate(tagged):
+                if tag[0] == "predicted" or tag[0] == "foreseen" or tag[0] == "envisioned" and tagged[i-1][0] == "is" and (tagged[i-2][1] == "NNP" or tagged[i-2][1] == "NN"):
+                    replace = str(tagged[i+2][0])
+                    sentence = sentence.replace(replace, replace + "s")
+                    sentence = sentence.replace(prediction, "")
+                else:
+                    sentence = sentence.replace(prediction, "")
     for i, tag in enumerate(tagged):
         if tag[1] == "MD" and (tagged[i-1][1] == "NNS" or tagged[i-1][1] == "NNPS") and tokenized[i+1] == "be":
             replace = str(tag[0] + " " + tokenized[i+1])
@@ -113,12 +122,26 @@ def make_absolute(sentence, tokenized, tagged):
             sentence = sentence.replace(replace, tokenized[i+1] + "s")
         if tag[0] in not_absolute_list:
             sentence = sentence.replace(tag[0], "")
+        if tag[1] == "VBD" and tag[0] == "was":
+            sentence = sentence.replace(tag[0], "is")
+        if tag[1] == "VBD" and tag[0] == "were":
+            sentence = sentence.replace(tag[0], "are")
+        if tag[1] == "VBD" and tag[0] == "had" and (tagged[i-1][1] == "NNS" or tagged[i-1][1] == "NNPS"):
+            sentence = sentence.replace(tag[0], "have")
+        if tag[1] == "VBD" and tag[0] == "had" and (tagged[i-1][1] == "NN" or tagged[i-1][1] == "NNP"):
+            sentence = sentence.replace(tag[0], "has")
+        if tag[1] == "VBD" and (tagged[i-1][1] == "NNS" or tagged[i-1][1] == "NNPS"):
+            replace = WordNetLemmatizer().lemmatize(tag[0],'v')
+            sentence = sentence.replace(tag[0], replace)
+        if tag[1] == "VBD" and (tagged[i-1][1] == "NN" or tagged[i-1][1] == "NNP"):
+            replace = WordNetLemmatizer().lemmatize(tag[0],'v')
+            sentence = sentence.replace(tag[0], replace + "s")
     if "  " in sentence:
         sentence = sentence.replace("  ", " ")
     return sentence
 
 def final_check(sentence):
-    searchObj = re.search( r'(\d)*(\.)*( )*(Discussion|Results|Conclusions|Conclusion)+', sentence)
+    searchObj = re.search( r'(\d)*(\.)*( )*(Results:|Conclusions:|Conclusion:|Discussion:|Discussion|Results|Conclusions|Conclusion|Findings)+', sentence)
     if searchObj != None:
         sentence = sentence.replace(searchObj.group(), "")
     headings = ["\nDiscussion\n", "\nMain findings\n", "\nConclusions\n", "\nKey findings\n", "\nConclusion\n", "\nResults\n", "Discussion\n", "Main findings\n", "Conclusions\n", "Key findings\n", "Conclusion\n", "Results\n"]
@@ -136,76 +159,66 @@ def final_check(sentence):
             sentence = sentence[0].upper() + sentence[1:]
     return sentence
 
-# The sentence that we're talking about is given here and some basic NLP tools do their work
+csvfile = open('Results/results_AIDA_check_1.csv', 'wb')
+fieldnames = ['Sentence', 'Atomic', 'Independent', 'Declarative', 'Absolute', 'AIDA', 'Rewritten_Sentence']
+writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter='|')
+writer.writeheader()
 
-sentence = "Topiramate is effective in the prophylactic treatment of migraine."
-sentence_lower = sentence.lower()
-tokenized = nltk.word_tokenize(sentence)
-tagged = nltk.pos_tag(tokenized)
-tags = []
-for tag in tagged:
-    tags.append(tag[1])
-parsed = parser.parse(sentence)
+# After processing, provide the path of the file where the results are stored. 
 
-# Here, the given sentence is checked against every requirement and given a True or False based on whether it fulfills that rule or not
+sentences = []
+extracted_sentences = open('C:/Users/../../Results/results_abstract.csv')
+extracted_reader = csv.DictReader(extracted_sentences, delimiter='|')
+for row in extracted_reader:
+    sentences.append(row['Sentence'])
 
-def perform_AIDA_check():
-    if check_if_atomic(sentence, parsed, tags):
-        print "The sentence is atomic."
-        Atomic = True
-    else:
-        print "The sentence is not atomic."
-        Atomic = False
-    if check_if_independent(sentence):
-        print "The sentence is independent."
-        Independent = True
-    else:
-        print "The sentence is not independent."
-        Independent = False
-    if check_if_declarative(sentence, tags):
-        print "The sentence is declarative."
-        Declarative = True
-    else:
-        print "The sentence is not declarative."
-        Declarative = False
-    if check_if_absolute(sentence, sentence_lower, tags):
-        print "The sentence is absolute."
-        Absolute = True
-    else:
-        print "The sentence is not absolute."
-        Absolute = False
-    return Atomic, Independent, Declarative, Absolute
+for sentence in sentences:
+    sentence = sentence.decode('utf-8')
+    sentence_lower = sentence.lower()
+    tokenized = nltk.word_tokenize(sentence)
+    tagged = nltk.pos_tag(tokenized)
+    tags = []
+    for tag in tagged:
+        tags.append(tag[1])
+    parsed = parser.parse(sentence)
 
-print "Sentence to check for AIDA compliancy: \n"
-print sentence
-print "\nResults: \n"
+    # Here, the given sentence is checked against every requirement and given a True or False based on whether it fulfills that rule or not
 
-AIDA = perform_AIDA_check()
-Atomic = AIDA[0]
-Independent = AIDA[1]
-Declarative = AIDA[2]
-Absolute = AIDA[3]
-
-# If it complies with all the rules, the sentence is printed
-# Otherwise, the sentence will be rewritten
-
-if Atomic == True and Independent == True and Declarative == True and Absolute == True:
-    print "\nThe sentence complies with the AIDA rules."
-else:
-    print "\nThe sentence is now processed to comply with the AIDA rules..."
-    if Atomic == False:
-        sentence = make_atomic(sentence)
-        Atomic = True
-    if Independent == False:
-        sentence = make_independent(sentence)
-        Independent = True
-    if Declarative == False:
-        sentence = make_declarative(sentence, tags)
-        Declarative = True
-    if Absolute == False:
-        sentence = make_absolute(sentence, tokenized, tagged)
-        Absolute = True
-    sentence = final_check(sentence)
+    def perform_AIDA_check():
+        if check_if_atomic(sentence, parsed, tags):
+            Atomic = True
+        else:
+            Atomic = False
+        if check_if_independent(sentence):
+            Independent = True
+        else:
+            Independent = False
+        if check_if_declarative(sentence, tags):
+            Declarative = True
+        else:
+            Declarative = False
+        if check_if_absolute(sentence, sentence_lower, tags):
+            Absolute = True
+        else:
+            Absolute = False
+        return Atomic, Independent, Declarative, Absolute
+    
+    Atomic, Independent, Declarative, Absolute = perform_AIDA_check()
+    
     if Atomic == True and Independent == True and Declarative == True and Absolute == True:
-        print "\nThe final version of the sentence is:\n"
-        print sentence
+        AIDA = True
+    else:
+        AIDA = False
+        if Atomic == False:
+            rewritten_sentence = make_atomic(sentence)
+        if Independent == False:
+            rewritten_sentence = make_independent(sentence)
+        if Declarative == False:
+            rewritten_sentence = make_declarative(sentence, tags)
+        if Absolute == False:
+            rewritten_sentence = make_absolute(sentence, tokenized, tagged)
+        rewritten_sentence = final_check(rewritten_sentence)
+        rewritten_sentence = rewritten_sentence.encode('utf-8')
+    sentence = sentence.encode('utf-8')
+    
+    writer.writerow({'Sentence': sentence, 'Atomic': Atomic, 'Independent': Independent, 'Declarative': Declarative, 'Absolute': Absolute, 'AIDA': AIDA, 'Rewritten_Sentence': rewritten_sentence})
