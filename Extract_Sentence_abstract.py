@@ -6,6 +6,10 @@ from nltk.corpus import stopwords
 from collections import Counter
 import json
 import numpy as np
+from difflib import SequenceMatcher
+
+def check_similarity(a, b):
+    return SequenceMatcher(None, a, b).ratio()
 
 sent_detector = nltk.data.load('tokenizers/punkt/english.pickle')
 
@@ -106,7 +110,7 @@ def go_over_sentences(sentences):
 
 # Provide the directory here with all the articles that should be processed
 
-directory='C:/Users/../../'
+directory='C:/Users/..'
 csvfile = open('Results/results_abstract.csv', 'wb')
 fieldnames = ['File', 'Sentence']
 writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter='|')
@@ -137,7 +141,7 @@ for file in os.listdir(directory):
     core_sentence = go_over_sentences(sentences)
     core_sentence = core_sentence.replace('\n', ' ').replace(';',',')
     core_sentence = core_sentence.encode('utf-8')
-    #doi = searchObj.group().encode('utf-8')
-
-    #results.write('http://dx.doi.org/'+ doi + ', ' + core_sentence + '\n')
+    
     writer.writerow({'File': file, 'Sentence': core_sentence})
+    
+# DO NOT FORGET TO DECODE EXTRACTED RESULTS BEFORE NEXT STEP!
