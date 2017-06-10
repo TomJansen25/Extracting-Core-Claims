@@ -1,5 +1,5 @@
 # Extracting-Core-Claims
-An attempt to extract single core claims from scientific articles
+<b>An attempt to extract single core claims from scientific articles</b>
 
 In this project, an attempt is made to extract single core claims from scientific articles.
 
